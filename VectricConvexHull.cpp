@@ -215,24 +215,43 @@ void removePoints(){
     }
 }
 
-// Returns 0 for collinear, 1 for clockwise, and -1 for anticlockwise (a,b,c are distinct)
+/* ORIENTATION  
+    Returns 0 for collinear, 1 for clockwise, and -1 for anticlockwise (a,b,c are distinct)
+
+    We do this by comparing gradients however we want gradients in a form without division so 
+    that we can deal ignore division by zero cases. 
+
+    abGradient = (by - ay)/(bx - ax)
+    bcGradient = (cy - by)/(cx - bx)
+
+    we compare these directly and are in the following possible cases:
+    abGradient > bcGradient
+    abGradient == bcGradient 
+    abGradient < bcGradient 
+
+    so therefore we can manipulate both sides by multiplying up. 
+    We will represent >, ==, and < by the symbol ?. 
+
+    abGradient ? bcGradient
+    (by - ay)/(bx - ax) ? (cy - by)/(cx - bx)
+    (by - ay) * (cx - bx) ? (cy - by) * (bx - ax)
+
+    so we will refer to abGradient = (by - ay) * (cx - bx)
+    and bcGradient = (cy - by) * (bx - ax)
+
+    even though these don't represent real gradients 
+*/
 char orientation(Point a, Point b, Point c){ 
-    int dabX = b.x - a.x; // change in x from points a to b
-    int dbcX = c.x - b.x; // change in x from points b to c
-    
-    int abGradient, bcGradient;
+    int abGradient = (b.y - a.y) * (c.x - b.x);
+    int bcGradient = (c.y - b.y) * (b.x - a.x);
 
-    if(dabX == 0){ // special case: vertical lines
-        if(dbcX == 0){ // collinear 
-            
-        }
+    if(abGradient > bcGradient){ 
+        return 1; // clockwise
+    }else if (abGradient < bcGradient){
+        return -1; // anti-clockwise
+    }else{
+        return 0; // collinear
     }
-
-    if(dabX == 0){
-        abGradient = (b.y - a.y)/dabX;
-    }
-
-
 }
 
 /*  TO-DO:
@@ -278,8 +297,7 @@ void menu(){
         }else if(option == "viewSpace"){
             outputSpace();
         }else if ((option == "q") || (option == "quit")){
-            cout << "\nGoodbye!\n\n";
-            break;
+            break; // return control to main to handle quitting 
         }else{
             cout << "invalid option\n\n";
             continue;
@@ -293,4 +311,6 @@ int main(){
 
     initialiseSpace();
     menu();
+
+    cout << "\nGoodbye!\n\n";
 }
