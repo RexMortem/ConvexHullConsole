@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <vector> 
 #include <string>
+#include <cmath>
 
 #define minColumns 2
 #define maxColumns 50
@@ -14,8 +15,13 @@
 using namespace std; // while this is bad practice for big projects, we have a small global state so it's okay 
 
 vector<vector<char>> scene; // use vectors so users can define the dimensions; scene is also referred to as "space" or "plane"
+vector<vector<char>> hullScene; // caching hull state if no change in points 
+
+char sceneChanged = true; // for whether to use cached hull state; change in points means have to run algorithm again
+
 int nColumns;
 int nRows; 
+int nPoints; // part of scene state; used for checking whether algorithm can be run
 
 class Point {
     public:
@@ -28,7 +34,7 @@ class Point {
         }
 };
 
-// redeclares the space with the (newly set) nColumns and nRows 
+// redeclares the space with the (newly set) nColumns and nRows; this clears the points 
 void resetSpace(){
     vector<vector<char>> newScene(nRows);
 
@@ -41,11 +47,28 @@ void resetSpace(){
     }
 
     scene = newScene;
+    nPoints = 0;
+    sceneChanged = true;
+}
+
+// redeclares hull space 
+void resetHullSpace(){
+    vector<vector<char>> newHullScene(nRows);
+
+    for(int y = 0; y < nRows; y++){
+        newHullScene[y] = vector<char>(nColumns);
+
+        for(int x = 0; x < nColumns; x++){ // we do y then x so that we can easily print the space to terminal
+            newHullScene[y][x] = backgroundCharacter;
+        }
+    }
+
+    hullScene = newHullScene;
 }
 
 // gets user input for defining the space, and sets variables for declaring the space
 void initialiseSpace(){
-    while(1){
+    while(true){
         cout << "\nEnter number of columns: ";
 
         int nReplacements = scanf("%d", &nColumns);  
@@ -66,7 +89,7 @@ void initialiseSpace(){
         }
     }
     
-    while(1){
+    while(true){
         cout << "Enter number of rows: ";
 
         int nReplacements = scanf("%d", &nRows);  
@@ -93,8 +116,10 @@ void initialiseSpace(){
     cout << "Remember indexing is 0-based so " << 0 << " <= x < " << nColumns << " and " << 0 << " <= y < " << nRows << '\n' << endl;
 }
 
-// prints the space to the console 
+// outputs scene of points 
 void outputSpace(){
+    cout << endl;
+
     for(int x = 0; x < nColumns; x++){
         cout << '=';
     }
@@ -119,6 +144,34 @@ void outputSpace(){
     cout << "\n\n";
 }
 
+// outputs scene with convex hull in it
+void outputHull(){
+    cout << endl;
+
+    for(int x = 0; x < nColumns; x++){
+        cout << '=';
+    }
+    
+
+    cout << "\n\n";
+
+    for(int y = 0; y < nRows; y++){
+        for(int x = 0; x < nColumns; x++){
+            cout << hullScene[y][x];
+        }
+
+        cout << '\n'; // linebreak between lines 
+    }
+
+    cout << '\n';
+
+    for(int x = 0; x < nColumns; x++){
+        cout << '=';
+    }
+
+    cout << "\n\n";
+}
+
 // adding points to the space 
 void addPoints(){
     int x;
@@ -127,7 +180,7 @@ void addPoints(){
 
     cout << "\nPlease enter x y space-separated e.g. 5 5\n\n";
 
-    while(1){
+    while(true){
         cout << "Enter (x,y): ";
 
         int nReplacements = scanf("%d %d", &x, &y);  
@@ -150,6 +203,9 @@ void addPoints(){
             // point successfully chosen 
 
             scene[y][x] = pointCharacter;
+            nPoints++;
+            sceneChanged = true;
+
             cout << "Successfully added point! Continue adding or enter quit/q to leave" << '\n' << endl;
         }else{ // coordinates not read correctly; let's see if they're quitting 
             cin >> input;
@@ -172,7 +228,7 @@ void removePoints(){
 
     cout << "\nPlease enter x y space-separated e.g. 5 5\n\n";
 
-    while(1){
+    while(true){
         cout << "Enter (x,y): ";
 
         int nReplacements = scanf("%d %d", &x, &y);  
@@ -196,6 +252,8 @@ void removePoints(){
 
             if(scene[y][x] == pointCharacter){
                 cout << "Successfully removed point! Continue removing or enter quit/q to leave" << '\n' << endl;
+                nPoints--;
+                sceneChanged = true;
             }else{
                 cout << "There was no point at (" << x << "," << y << ")" << '\n' << endl;
             }
@@ -241,7 +299,7 @@ void removePoints(){
 
     even though these don't represent real gradients 
 */
-char orientation(Point a, Point b, Point c){ 
+int orientationOfPoints(Point a, Point b, Point c){ 
     int abGradient = (b.y - a.y) * (c.x - b.x);
     int bcGradient = (c.y - b.y) * (b.x - a.x);
 
@@ -253,6 +311,154 @@ char orientation(Point a, Point b, Point c){
         return 0; // collinear
     }
 }
+
+vector<Point> getPoints(){
+    vector<Point> points;
+
+    for(int y = 0; y < nRows; y++){
+        for(int x = 0; x < nColumns; x++){
+            if(scene[y][x] == pointCharacter){
+                Point newPoint(x,y); 
+                points.push_back(newPoint); // add to vector 
+            }
+        }
+    }
+
+    return points;
+}
+
+/*
+    Run algorithm uses an implementation of Jarvis march (aka the gift wrapping algorithm)
+    Initial point is the leftermost point which is guaranteed to be in the convex hull (CH)
+    Next point is the point where every other point is counter-clockwise of the previous point and next point
+    This means it's the most "outwards" point and therefore builds a perimeter around the other points 
+
+    function assumes that there are >= 3 points 
+*/
+vector<Point> jarvisMarch(){
+    vector<Point> points = getPoints();
+    vector<Point> hull;
+
+    // get leftermost point as it's guaranteed to be in the hull 
+
+    int lI = 0; // lI is leftermostIndex
+
+    for(int i = 1; i < points.size(); i++){ // search for leftermost point
+        if(points[i].x < points[lI].x){
+            lI = i;
+        }
+    }
+
+    int cPi = lI; // current point index 
+    hull.push_back(points[cPi]);
+
+    while(true){
+        int mCPi = 0; // mCPi is index of most counterclockwise point (is counterclockwise with the current point over all other points)
+
+        while(true){ // this loop is for finding most counterclockwise point 
+            int isBetter = false; // whether there is a more counterclockwise point 
+            cout << "Investigating mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << "\n";
+
+            for(int i = 0; i < points.size(); i++){ // consider other points which could be more counterclockwise
+                if((cPi == i) || (mCPi == i)){ // don't need to compare against current point or current most counterclockwise point 
+                    continue;
+                }
+
+                cout << "Orientation of points: " << orientationOfPoints(points[cPi], points[mCPi], points[i]) << "\n";
+
+                if(orientationOfPoints(points[cPi], points[mCPi], points[i]) == 1){ // let's prefer this point
+                    mCPi = i;
+                    isBetter = true;
+                    cout << "Found a better point, let's exit loop \n";
+                    break;
+                }
+            }
+
+            if(!isBetter){
+                cout << "found no better points" << "\n";
+                break;
+            }else{
+                cout << "found a better point; let's compare it against everything else" << "\n";
+            }
+        }
+
+        cout << "the inner loop found no better points, mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << "\n";
+
+        if(mCPi == lI){ // hull is complete if next point is starting point
+            cout << "the mCPi is the lI" << "\n";
+            break;
+        }else{
+            cout << "the MCPi is not the lI" << "\n";
+            hull.push_back(points[mCPi]);
+            cPi = mCPi;
+        }
+    }
+
+    return hull;
+}
+
+void drawLineOnHull(Point a, Point b){
+    int dx = (b.x - a.x);
+    int dy = (b.y - a.y);
+
+    float gradient = ((float) dy)/((float) dx); 
+    int step; 
+
+    if(dx > 0){
+        step = 1;
+    }else if (dx < 0){
+        step = -1;
+    }else{ // special case: vertical line 
+        int yStep = dy/abs(dy);
+
+        for(int y = a.y; y <= b.y; y += yStep){
+            hullScene[y][a.x] = pointCharacter;
+        }
+    }
+
+    for (int x = a.x; x <= b.x; x += step){
+        float fromStartX = x - a.x; // widening conversion for floor
+        float yStep = floor(fromStartX * gradient);
+        int y = a.y + (int) yStep;
+
+        hullScene[y][x] = pointCharacter;
+    }
+}
+
+void runAlgorithm(){
+    if(!sceneChanged){ // no change so let's not run the algorithm and update state again 
+        outputHull();
+        return;
+    }
+
+    if(nPoints < 3){
+        cout << "We cannot run a convex hull algorithm with fewer than 3 points!\n" << endl;
+        return;
+    }
+
+    vector<Point> hull = jarvisMarch();
+
+    // initialise hull
+    resetHullSpace();
+
+    cout << "Hull size: " << hull.size() << "\n";
+    
+    for(int i = 0; i < hull.size(); i++){
+        Point x = hull[i];
+        cout << "Point: (" << x.x << ", " << x.y << ")" << "\n";
+    }
+
+    // draw lines between points 
+    for(int i = 0; i < hull.size() - 1; i++){
+        drawLineOnHull(hull[i], hull[i+1]);
+    }
+
+    drawLineOnHull(hull[hull.size()], hull[0]);
+
+    sceneChanged = false;
+    outputHull();
+}
+
 
 /*  TO-DO:
 
@@ -268,8 +474,8 @@ void printMenu(){
     cout << "dimensions - edit the number of rows and columns\n";
     cout << "addPoints - add points to the plane\n";
     cout << "removePoints - remove points from the plane\n";
-    cout << "runProgram - run the algorithm\n";
     cout << "viewSpace - view the plane of points (no hull)\n";
+    cout << "viewHull - view the convex hull generated\n";
 
     cout << "\n";
 
@@ -282,20 +488,22 @@ void menu(){
     string option; 
     printMenu();
 
-    while(1){
+    while(true){
         cout << "Menu> ";
         cin >> option; 
         
         if(option == "viewMenu"){
             printMenu();
-        }else if(option == "dimensions"){
+        }else if (option == "dimensions"){
             initialiseSpace();
-        }else if(option == "addPoints"){
+        }else if (option == "addPoints"){
             addPoints();
         }else if (option == "removePoints"){
             removePoints();
-        }else if(option == "viewSpace"){
+        }else if (option == "viewSpace"){
             outputSpace();
+        }else if (option == "viewHull"){
+            runAlgorithm();
         }else if ((option == "q") || (option == "quit")){
             break; // return control to main to handle quitting 
         }else{
