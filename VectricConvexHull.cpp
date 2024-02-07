@@ -1,3 +1,10 @@
+/*  Tested for: 
+ (1 1) (5 1) (7 6) (5 5) (4 4) (9 6) (8 5) (5 9) (1 6) 
+ (0 0) (4 4) (4 0) 
+ (0 0) (4 4) (4 0) (0 4)
+ (0 0) (4 4) (0 4)
+*/
+
 #include <iostream> 
 #include <stdio.h>
 #include <vector> 
@@ -366,41 +373,27 @@ vector<Point> jarvisMarch(){
 
         while(true){ // this loop is for finding most counterclockwise point 
             int isBetter = false; // whether there is a more counterclockwise point 
-            cout << "Investigating mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << ")" << "\n";
 
             for(int i = 0; i < points.size(); i++){ // consider other points which could be more counterclockwise
                 if((cPi == i) || (mCPi == i)){ // don't need to compare against current point or current most counterclockwise point 
                     continue;
-                }
+                }     
 
-                cout << "Orientation of points: " << orientationOfPoints(points[cPi], points[mCPi], points[i]) << "\n";
-                cout << "cP: " << points[cPi].x << " " << points[cPi].y << "\n";
-                cout << "mCPi: " << points[mCPi].x << " " << points[mCPi].y << "\n";
-                cout << "i: " << points[i].x << " " << points[i].y << "\n";
-                
                 if(orientationOfPoints(points[cPi], points[mCPi], points[i]) == 1){ // let's prefer this point
                     mCPi = i;
                     isBetter = true;
-                    cout << "Found a better point, let's exit loop \n";
                     break;
                 }
             }
 
             if(!isBetter){
-                cout << "found no better points" << "\n";
                 break;
-            }else{
-                cout << "found a better point; let's compare it against everything else" << "\n";
             }
         }
 
-        cout << "the inner loop found no better points, mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << "\n";
-
         if(mCPi == lI){ // hull is complete if next point is starting point
-            cout << "the mCPi is the lI" << "\n";
             break;
         }else{
-            cout << "the MCPi is not the lI" << "\n";
             hull.push_back(points[mCPi]);
             cPi = mCPi;
         }
@@ -415,10 +408,6 @@ void drawLineOnHull(Point a, Point b){
 
     float gradient = ((float) dy)/((float) dx); 
     int initX, initY, endX; // always step x from neg to positive 
-
-    cout << "Drawing line inside fnc \n";
-    cout << "Point 1: (" << a.x << ", " << a.y << ")" << "\n";
-    cout << "Point 2: (" << b.x << ", " << b.y << ")" << "\n";
 
     if(dx > 0){
         initX = a.x;
@@ -440,24 +429,34 @@ void drawLineOnHull(Point a, Point b){
         }
 
         for(int y = initY; y <= endY; y++){
-            cout << "y: " << y << "\n";
             hullScene[y][a.x] = pointCharacter;
         }
 
         return;
     }
 
-    for (int x = initX; x <= endX; x++){
-        cout << "x: " << x << "\n";
-        float fromStartX = x - initX; // widening conversion for floor
-        float yStep = floor(fromStartX * gradient);
-        int y = initY + (int) yStep;
+    int lastY = initY;
 
-        hullScene[y][x] = pointCharacter;
+    for (int x = initX; x <= endX; x++){
+        float fromStartX = (x+1) - initX; // widening conversion for floor
+        float yStep = floor(fromStartX * gradient);
+        int nextY = initY + (int) yStep;
+        
+        int dy = (nextY - lastY); 
+        int yDir = dy/abs(dy); // -1, 0, or 1; direction to draw multiple ys for same x if steep line 
+
+        if(dy == 0){
+            hullScene[nextY][x] = pointCharacter;
+        }else{
+            for(int y = lastY; y != nextY; y += yDir){
+                hullScene[y][x] = pointCharacter;
+            }
+        }
+
+        lastY = nextY;
     }
 }
 
-// (1 1) (5 1) (7 6) (5 5) (4 4) (9 6) (8 5) (5 9) (1 6)
 void runAlgorithm(){
     if(!sceneChanged){ // no change so let's not run the algorithm and update state again 
         outputHull();
@@ -465,7 +464,7 @@ void runAlgorithm(){
     }
 
     if(nPoints < 3){
-        cout << "We cannot run a convex hull algorithm with fewer than 3 points!\n" << endl;
+        cout << "\nWe cannot run a convex hull algorithm with fewer than 3 points!\n" << endl;
         return;
     }
 
@@ -474,25 +473,20 @@ void runAlgorithm(){
     // initialise hull
     resetHullSpace();
 
-    cout << "Hull size: " << hull.size() << "\n";
+    cout << "\nNumber of points in hull: " << hull.size() << "\n" << endl;
     
     for(int i = 0; i < hull.size(); i++){
         Point x = hull[i];
-        cout << "Point: (" << x.x << ", " << x.y << ")" << "\n";
     }
 
     // draw lines between points 
     for(int i = 0; i < hull.size() - 1; i++){ 
-        cout << "Drawing line: " << i << "\n";
         drawLineOnHull(hull[i], hull[i+1]);
     }
 
     drawLineOnHull(hull[hull.size()-1], hull[0]); // last point and first point
-    cout << "Drew line 2" << "\n";
 
     sceneChanged = false;
-
-    cout << "scene changed set to false for chacing \n";
     outputHull();
 }
 
@@ -511,6 +505,7 @@ void printMenu(){
     cout << "dimensions - edit the number of rows and columns\n";
     cout << "addPoints - add points to the plane\n";
     cout << "removePoints - remove points from the plane\n";
+    cout << "clearPoints - clear all points from the plane\n";
     cout << "viewSpace - view the plane of points (no hull)\n";
     cout << "viewHull - view the convex hull generated\n";
 
@@ -537,6 +532,8 @@ void menu(){
             addPoints();
         }else if (option == "removePoints"){
             removePoints();
+        }else if (option == "clearPoints"){
+            resetSpace();
         }else if (option == "viewSpace"){
             outputSpace();
         }else if (option == "viewHull"){
