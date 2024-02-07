@@ -97,15 +97,15 @@ void initialiseSpace(){
     }
     
     while(true){
-        cout << "Enter number of rows: ";
+        cout << "\nEnter number of rows: ";
 
         int nReplacements = scanf("%d", &nRows);  
 
         if(nReplacements == 1){ // we check if scanf consumed the input
-            if(nColumns < minRows){
+            if(nRows < minRows){
                 cout << "Need at least " << minRows << " rows" << endl;
                 continue;
-            }else if(nColumns > maxRows){
+            }else if(nRows > maxRows){
                 cout << "Can only have " << maxRows << " or fewer rows" << endl; 
                 continue; 
             }

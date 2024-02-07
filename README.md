@@ -12,4 +12,7 @@ g++ VectricConvexHull.cpp -o VectricConvexHull
 
 # What is it 
 
-This is a console application written in C++ that has 
+This is a console application written in C++ that lets you add points to a plane, 
+ implements a console-like navigation system 
+where you use commands to navigate, execute state changes, and display states. 
+
