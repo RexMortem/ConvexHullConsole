@@ -153,7 +153,6 @@ void outputSpace(){
 
 // outputs scene with convex hull in it
 void outputHull(){
-    cout << "HELLOOO\n";
     cout << endl;
 
     for(int x = 0; x < nColumns; x++){
