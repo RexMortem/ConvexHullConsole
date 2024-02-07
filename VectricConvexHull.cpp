@@ -146,6 +146,7 @@ void outputSpace(){
 
 // outputs scene with convex hull in it
 void outputHull(){
+    cout << "HELLOOO\n";
     cout << endl;
 
     for(int x = 0; x < nColumns; x++){
@@ -353,11 +354,19 @@ vector<Point> jarvisMarch(){
     hull.push_back(points[cPi]);
 
     while(true){
-        int mCPi = 0; // mCPi is index of most counterclockwise point (is counterclockwise with the current point over all other points)
+        int mCPi; // mCPi is index of most counterclockwise point (is counterclockwise with the current point over all other points)
+
+        for(int i = 0; i < points.size(); i++){ // we need to initially guess mCPi as anything other than current point 
+            if(i == cPi){
+                continue;
+            }
+
+            mCPi = i;
+        }
 
         while(true){ // this loop is for finding most counterclockwise point 
             int isBetter = false; // whether there is a more counterclockwise point 
-            cout << "Investigating mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << "\n";
+            cout << "Investigating mCPi: " << mCPi << " (" << points[mCPi].x << ", " << points[mCPi].y << ")" << "\n";
 
             for(int i = 0; i < points.size(); i++){ // consider other points which could be more counterclockwise
                 if((cPi == i) || (mCPi == i)){ // don't need to compare against current point or current most counterclockwise point 
@@ -365,7 +374,10 @@ vector<Point> jarvisMarch(){
                 }
 
                 cout << "Orientation of points: " << orientationOfPoints(points[cPi], points[mCPi], points[i]) << "\n";
-
+                cout << "cP: " << points[cPi].x << " " << points[cPi].y << "\n";
+                cout << "mCPi: " << points[mCPi].x << " " << points[mCPi].y << "\n";
+                cout << "i: " << points[i].x << " " << points[i].y << "\n";
+                
                 if(orientationOfPoints(points[cPi], points[mCPi], points[i]) == 1){ // let's prefer this point
                     mCPi = i;
                     isBetter = true;
@@ -402,29 +414,50 @@ void drawLineOnHull(Point a, Point b){
     int dy = (b.y - a.y);
 
     float gradient = ((float) dy)/((float) dx); 
-    int step; 
+    int initX, initY, endX; // always step x from neg to positive 
+
+    cout << "Drawing line inside fnc \n";
+    cout << "Point 1: (" << a.x << ", " << a.y << ")" << "\n";
+    cout << "Point 2: (" << b.x << ", " << b.y << ")" << "\n";
 
     if(dx > 0){
-        step = 1;
+        initX = a.x;
+        initY = a.y;
+        endX = b.x;
     }else if (dx < 0){
-        step = -1;
+        initX = b.x;
+        initY = b.y;
+        endX = a.x;
     }else{ // special case: vertical line 
-        int yStep = dy/abs(dy);
+        int endY;
 
-        for(int y = a.y; y <= b.y; y += yStep){
+        if((b.y - a.y) > 0){ // we always go from neg to pos 
+            initY = a.y;
+            endY = b.y;
+        }else{ // these points are distinct so if x is same, then y won't be same 
+            initY = b.y;
+            endY = a.y;
+        }
+
+        for(int y = initY; y <= endY; y++){
+            cout << "y: " << y << "\n";
             hullScene[y][a.x] = pointCharacter;
         }
+
+        return;
     }
 
-    for (int x = a.x; x <= b.x; x += step){
-        float fromStartX = x - a.x; // widening conversion for floor
+    for (int x = initX; x <= endX; x++){
+        cout << "x: " << x << "\n";
+        float fromStartX = x - initX; // widening conversion for floor
         float yStep = floor(fromStartX * gradient);
-        int y = a.y + (int) yStep;
+        int y = initY + (int) yStep;
 
         hullScene[y][x] = pointCharacter;
     }
 }
 
+// (1 1) (5 1) (7 6) (5 5) (4 4) (9 6) (8 5) (5 9) (1 6)
 void runAlgorithm(){
     if(!sceneChanged){ // no change so let's not run the algorithm and update state again 
         outputHull();
@@ -449,13 +482,17 @@ void runAlgorithm(){
     }
 
     // draw lines between points 
-    for(int i = 0; i < hull.size() - 1; i++){
+    for(int i = 0; i < hull.size() - 1; i++){ 
+        cout << "Drawing line: " << i << "\n";
         drawLineOnHull(hull[i], hull[i+1]);
     }
 
-    drawLineOnHull(hull[hull.size()], hull[0]);
+    drawLineOnHull(hull[hull.size()-1], hull[0]); // last point and first point
+    cout << "Drew line 2" << "\n";
 
     sceneChanged = false;
+
+    cout << "scene changed set to false for chacing \n";
     outputHull();
 }
 
